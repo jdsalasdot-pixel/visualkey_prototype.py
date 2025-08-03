@@ -10,17 +10,15 @@ VALID_TOKENS = {
     "compat123": "insecure"
 }
 
-# Session state setup
-if 'token_valid' not in st.session_state:
-    st.session_state.token_valid = False
-if 'playing' not in st.session_state:
-    st.session_state.playing = False
-if 'mode' not in st.session_state:
-    st.session_state.mode = None
-if 'watermark_id' not in st.session_state:
-    st.session_state.watermark_id = None
-if 'log' not in st.session_state:
-    st.session_state.log = []
+# Initialize session state
+for key in ['token_valid', 'playing', 'mode', 'watermark_id', 'log']:
+    if key not in st.session_state:
+        if key == 'log':
+            st.session_state[key] = []
+        elif key in ['token_valid', 'playing']:
+            st.session_state[key] = False
+        else:
+            st.session_state[key] = None
 
 def timestamp():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -54,8 +52,10 @@ def create_watermark_image(wm_text, mode):
     draw.text((x, y), wm_text, font=font, fill=text_color)
     return img
 
+# App Title
 st.title("🎬 VisualKey – Secure Playback Prototype")
 
+# Step 1: Token validation
 if not st.session_state.token_valid:
     st.subheader("Login")
     token_input = st.text_input("Enter your access token:", type="password")
@@ -65,65 +65,52 @@ if not st.session_state.token_valid:
         elif token_input in VALID_TOKENS:
             st.session_state.token_valid = True
             env_status = VALID_TOKENS[token_input]
-            if env_status == "secure":
-                st.session_state.mode = "Premium"
-            elif env_status == "moderate":
-                st.session_state.mode = "Standard"
-            else:
-                st.session_state.mode = "Compatibility"
-            wm_id = generate_watermark_id()
-            st.session_state.watermark_id = wm_id
+            st.session_state.mode = "Premium" if env_status == "secure" else "Standard" if env_status == "moderate" else "Compatibility"
+            st.session_state.watermark_id = generate_watermark_id()
             st.session_state.playing = True
-            st.session_state.log.append(f"{timestamp()}: Valid token entered. Playback mode = {st.session_state.mode}")
-            st.session_state.log.append(f"{timestamp()}: Forensic watermark generated (ID={wm_id})")
+            st.session_state.log.append(f"{timestamp()}: Valid token. Playback mode = {st.session_state.mode}")
+            st.session_state.log.append(f"{timestamp()}: Watermark ID generated = {st.session_state.watermark_id}")
         else:
-            st.session_state.log.append(f"{timestamp()}: **Authentication failed** – Invalid token: {token_input}")
+            st.session_state.log.append(f"{timestamp()}: **Invalid token attempt** – {token_input}")
             st.error("Invalid token. Please try again.")
 else:
     if st.session_state.playing and st.session_state.mode:
-        st.subheader(f"Now playing in **{st.session_state.mode}** mode")
-        if st.session_state.mode == "Premium":
-            st.write("✅ <i>Premium Mode:</i> Full playback features enabled.", unsafe_allow_html=True)
-        elif st.session_state.mode == "Standard":
-            st.write("✅ <i>Standard Mode:</i> Limited controls (no pause/seek).", unsafe_allow_html=True)
-        else:
-            st.write("✅ <i>Compatibility Mode:</i> Reduced quality with visible security measures.", unsafe_allow_html=True)
+        st.subheader(f"Playback Mode: {st.session_state.mode}")
+        st.success(f"✅ {st.session_state.mode} mode active.")
 
         wm_text = f"ID:{st.session_state.watermark_id}"
         frame_img = create_watermark_image(wm_text, st.session_state.mode)
-        st.image(frame_img, caption="Playback frame with forensic watermark", use_column_width=True)
-        st.info("⚠️ Watermark is displayed visibly for demonstration purposes.")
+        st.image(frame_img, caption="Forensic Watermark Preview", use_column_width=True)
+        st.info("Watermark is shown for demo purposes only.")
 
         col1, col2 = st.columns(2)
-        if col1.button("🔌 Simulate Copy Attempt (HDMI Attack)"):
+        if col1.button("🔌 Simulate HDMI Copy Attempt"):
             st.session_state.playing = False
-            st.session_state.log.append(f"{timestamp()}: **Threat detected:** Unauthorized HDMI output. Playback stopped.")
-            st.error("⚠️ Unauthorized HDMI detected. Playback has been blocked.")
+            st.session_state.log.append(f"{timestamp()}: ⚠️ HDMI attack detected. Playback stopped.")
+            st.error("HDMI output unauthorized. Session terminated.")
+
         if col2.button("📼 Simulate Screen Recording"):
             st.session_state.playing = False
-            st.session_state.log.append(f"{timestamp()}: **Threat detected:** Screen recorder active. Playback stopped.")
-            st.error("⚠️ Screen recording detected. Playback has been blocked.")
+            st.session_state.log.append(f"{timestamp()}: ⚠️ Screen recorder detected. Playback stopped.")
+            st.error("Screen recording detected. Session terminated.")
 
         if not st.session_state.playing:
-            st.warning("🔒 Playback session ended. Restart required.")
+            st.warning("🔒 Playback session ended.")
             if st.button("Restart Application"):
-                st.session_state.token_valid = False
-                st.session_state.playing = False
-                st.session_state.mode = None
-                st.session_state.watermark_id = None
+                for key in ['token_valid', 'playing', 'mode', 'watermark_id']:
+                    st.session_state[key] = False if key in ['token_valid', 'playing'] else None
                 st.experimental_rerun()
     else:
-        st.warning("Playback has stopped. Please restart.")
+        st.warning("Playback ended. Restart to continue.")
         if st.button("Start New Session"):
-            st.session_state.token_valid = False
-            st.session_state.playing = False
-            st.session_state.mode = None
-            st.session_state.watermark_id = None
+            for key in ['token_valid', 'playing', 'mode', 'watermark_id']:
+                st.session_state[key] = False if key in ['token_valid', 'playing'] else None
             st.experimental_rerun()
 
+# Audit Log
 if st.session_state.log:
     st.markdown("---")
-    st.subheader("📑 Session Audit Log")
+    st.subheader("📑 Audit Log")
     log_text = "\n".join(st.session_state.log)
-    st.text_area("Events Recorded:", log_text, height=200)
-    st.download_button("📥 Download Log", log_text.encode('utf-8'), file_name="VisualKey_audit_log.txt")
+    st.text_area("Session Events:", log_text, height=200)
+    st.download_button("📥 Download Log", log_text.encode('utf-8'), file_name="visualkey_audit_log.txt")
