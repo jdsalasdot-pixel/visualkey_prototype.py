@@ -1,120 +1,129 @@
 import streamlit as st
-import time
 from datetime import datetime
-import base64
+import io
 
-st.set_page_config(page_title="VisualKey Secure Playback", layout="wide")
+# Page configuration
+st.set_page_config(page_title="VisualKey Prototype", layout="wide")
+st.title("🔐 VisualKey Secure Playback Prototype")
 
-st.title("🔐 VisualKey – Secure Content Playback System")
+# Sidebar: simulate environment and user details
+st.sidebar.header("🌐 Environment Simulation")
+secure_network = st.sidebar.checkbox("Secure Network", True)
+screen_rec = st.sidebar.checkbox("Screen Recording Software Active", False)
+hdmi = st.sidebar.checkbox("HDMI Output Active", False)
+location = st.sidebar.checkbox("Location Verified", True)
+device_auth = st.sidebar.checkbox("Device Authenticated", True)
+simulate_obs = st.sidebar.checkbox("Simulate OBS Running", False)
+
+st.sidebar.header("👤 User Info")
+user_email = st.sidebar.text_input("Watermark Email", "user@visualkey.io")
+
+# Determine playback mode based on environment flags
+if secure_network and not screen_rec and not hdmi and location and device_auth:
+    mode = "Premium"
+elif secure_network and not screen_rec and location and device_auth:
+    mode = "Standard"
+else:
+    mode = "Compatibility"
 
 # Initialize session state
-if "state" not in st.session_state:
-    st.session_state.state = "start"
-    st.session_state.mode = None
-    st.session_state.logs = []
-    st.session_state.piracy_tool = None
-    st.session_state.piracy_detected = False
-    st.session_state.user_id = "user123@visualkey"
+if 'step' not in st.session_state:
+    st.session_state.update({
+        'step': 1,
+        'piracy_detected': False,
+        'piracy_tool': None,
+        'logs': []
+    })
 
-def log_event(message):
+# Logging function
+def log(event: str):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    st.session_state.logs.append(f"[{timestamp}] {message}")
+    st.session_state.logs.append(f"{timestamp} – {event}")
 
-def simulate_piracy_detection():
-    # Mock piracy detection with preset process list
-    active_processes = ["system.exe", "chrome.exe", "obs64.exe"]
-    suspicious = ["obs64.exe", "camtasia.exe", "snagit.exe", "xsplit.exe"]
-    for proc in suspicious:
-        if proc in active_processes:
-            return proc
-    return None
+# Step 1: Environment Scan
+if st.session_state.step == 1:
+    st.header("1. Environment Scan")
+    st.markdown(f"- Secure Network: {'✅' if secure_network else '❌'}  ")
+    st.markdown(f"- Screen Recorder: {'❌' if not screen_rec else '⚠️'}  ")
+    st.markdown(f"- HDMI Active: {'❌' if not hdmi else '⚠️'}  ")
+    st.markdown(f"- Location Verified: {'✅' if location else '❌'}  ")
+    st.markdown(f"- Device Authenticated: {'✅' if device_auth else '❌'}  ")
+    st.info(f"**Mode Selected:** {mode}")
+    if st.button("▶️ Proceed to Playback"):
+        log(f"Environment scan completed – Mode: {mode}")
+        st.session_state.step = 2
+        st.experimental_rerun()
 
-def show_watermark():
-    st.markdown(
-        f"<div style='position:fixed; top:10px; right:20px; color:red; opacity:0.5;'>"
-        f"<strong>Watermark: {st.session_state.user_id}</strong></div>",
-        unsafe_allow_html=True
-    )
-
-def download_log():
-    log_content = "\n".join(st.session_state.logs)
-    b64 = base64.b64encode(log_content.encode()).decode()
-    href = f'<a href="data:file/txt;base64,{b64}" download="visualkey_session_log.txt">📄 Download Log File</a>'
-    st.markdown(href, unsafe_allow_html=True)
-
-# UI Flow
-if st.session_state.state == "start":
-    st.header("Step 1: Select Playback Mode")
-    st.session_state.mode = st.radio("Choose security level:", ["Premium", "Standard", "Compatibility"])
-    if st.button("Begin Environment Check"):
-        log_event(f"Mode selected: {st.session_state.mode}")
-        st.session_state.state = "env_check"
-        st.rerun()
-
-elif st.session_state.state == "env_check":
-    st.header("Step 2: Running Environment Validation...")
-    with st.spinner("Analyzing environment..."):
-        time.sleep(2)
-    log_event("Environment check: PASSED")
-    st.success("✅ Environment is secure for playback.")
-    if st.button("Start Secure Playback"):
-        st.session_state.state = "playback"
-        log_event("Playback started.")
-        st.rerun()
-
-elif st.session_state.state == "playback":
-    st.header("Step 3: Playback In Progress")
-    st.success(f"Mode: {st.session_state.mode}")
-    st.write("🎬 Your content is playing securely.")
-    if st.session_state.mode == "Compatibility":
-        show_watermark()
-
-    col1, col2 = st.columns(2)
-    if col1.button("⚠️ Simulate Piracy Detection"):
-        tool = simulate_piracy_detection()
+# Step 2: Playback Simulation
+elif st.session_state.step == 2:
+    st.header("2. Secure Playback")
+    st.success(f"Playback started in **{mode}** mode.")
+    log("Playback initiated")
+    
+    # Watermark for Compatibility mode
+    if mode == "Compatibility":
+        st.markdown(
+            f'<div style="position: fixed; top: 10px; right: 10px; '
+            'font-size: 12px; color: red; opacity: 0.5;">'
+            f'<strong>{user_email}</strong></div>', unsafe_allow_html=True
+        )
+    
+    if st.button("⚠️ Simulate Piracy Attempt"):
+        tool = "OBS" if simulate_obs else ("Screen Recorder" if screen_rec else None)
         if tool:
             st.session_state.piracy_detected = True
             st.session_state.piracy_tool = tool
-            log_event(f"Piracy tool detected: {tool}")
-            st.session_state.state = "response"
+            log(f"Piracy tool detected: {tool}")
         else:
-            log_event("Piracy check: no threats detected")
-            st.info("No piracy detected.")
-        st.rerun()
-    if col2.button("⏹️ End Playback"):
-        log_event("Playback ended manually")
-        st.session_state.state = "summary"
-        st.rerun()
+            st.info("No piracy tool detected.")
+            log("No piracy tool detected")
+        st.session_state.step = 3
+        st.experimental_rerun()
 
-elif st.session_state.state == "response":
-    st.header("Step 4: Security Response Triggered")
-    tool = st.session_state.piracy_tool
-    st.warning(f"Unauthorized tool detected: **{tool}**")
-    if st.session_state.mode == "Premium":
-        st.error("🚫 Playback Terminated Immediately.")
-        log_event("Response: Playback Terminated (Premium Mode)")
-    elif st.session_state.mode == "Standard":
-        st.warning("⏸️ Playback Paused. Please close the unauthorized application.")
-        log_event("Response: Playback Paused (Standard Mode)")
-    elif st.session_state.mode == "Compatibility":
-        st.info("🔍 Monitoring Active. Watermark Applied.")
-        show_watermark()
-        log_event("Response: Monitoring + Watermark (Compatibility Mode)")
-    if st.button("Proceed to Summary"):
-        st.session_state.state = "summary"
-        st.rerun()
-
-elif st.session_state.state == "summary":
-    st.header("Step 5: Session Summary")
-    st.write(f"**Selected Mode:** {st.session_state.mode}")
-    st.write(f"**Piracy Attempt Detected:** {'Yes' if st.session_state.piracy_detected else 'No'}")
+# Step 3: System Response
+elif st.session_state.step == 3:
+    st.header("3. System Response")
     if st.session_state.piracy_detected:
-        st.write(f"**Detected Tool:** {st.session_state.piracy_tool}")
-    st.subheader("📝 Security Log")
-    for log in st.session_state.logs:
-        st.text(log)
-    download_log()
-    if st.button("🔁 Restart Simulation"):
-        for key in list(st.session_state.keys()):
+        tool = st.session_state.piracy_tool
+        st.warning(f"Detected: {tool}")
+        if mode == "Premium":
+            st.error("🚫 Unauthorized output – Session terminated.")
+            log("Response applied: Terminated session")
+        elif mode == "Standard":
+            st.warning("⏸️ Playback paused – Close unauthorized software.")
+            log("Response applied: Paused playback")
+        elif mode == "Compatibility":
+            st.info("🔍 Monitoring active – Watermark persists.")
+            log("Response applied: Monitoring with watermark")
+    else:
+        st.success("✅ No threats detected during playback.")
+        log("No threats detected at response stage")
+    
+    if st.button("📊 View Summary and Logs"):
+        st.session_state.step = 4
+        st.experimental_rerun()
+
+# Step 4: Summary & Logs
+elif st.session_state.step == 4:
+    st.header("4. Summary & Event Log")
+    st.write(f"**Mode:** {mode}")
+    st.write(f"**Piracy Attempt:** {st.session_state.piracy_detected}")
+    if st.session_state.piracy_detected:
+        st.write(f"**Tool Detected:** {st.session_state.piracy_tool}")
+    st.subheader("Event Log")
+    for entry in st.session_state.logs:
+        st.text(entry)
+    
+    # Offer log download
+    log_data = "\n".join(st.session_state.logs)
+    st.download_button(
+        label="⬇️ Download Logs",
+        data=log_data,
+        file_name="visualkey_session_logs.txt",
+        mime="text/plain"
+    )
+    
+    if st.button("🔄 Restart Simulation"):
+        for key in st.session_state.keys():
             del st.session_state[key]
-        st.rerun()
+        st.experimental_rerun()
